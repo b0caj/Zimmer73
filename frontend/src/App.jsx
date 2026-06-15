@@ -5,7 +5,7 @@ import JeopardyBuilder from './JeopardyBuilder';
 import { supabase } from './supabaseClient';
 
 const BACKEND_URL = process.env.NODE_ENV === 'production' 
-  ? 'DEINE_RENDER_BACKEND_URL_HIER_EINSETZEN' 
+  ? 'Dhttps://projekt73.onrender.com' 
   : 'http://localhost:3001';
 
 const socket = io(BACKEND_URL);
