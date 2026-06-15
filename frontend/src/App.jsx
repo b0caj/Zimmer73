@@ -4,7 +4,11 @@ import { initialBoard } from './questions';
 import JeopardyBuilder from './JeopardyBuilder';
 import { supabase } from './supabaseClient';
 
-const socket = io('http://localhost:3001');
+const BACKEND_URL = process.env.NODE_ENV === 'production' 
+  ? 'DEINE_RENDER_BACKEND_URL_HIER_EINSETZEN' 
+  : 'http://localhost:3001';
+
+const socket = io(BACKEND_URL);
 
 function MediaRenderer({ type, url }) {
   if (!url || type === 'none') return null;

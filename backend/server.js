@@ -6,11 +6,6 @@ const cors = require('cors');
 const app = express();
 app.use(cors());
 
-const BACKEND_URL = process.env.NODE_ENV === 'production'
-    ? 'DEINE_RENDER_BACKEND_URL_HIER_EINSETZEN'
-    : 'http://localhost:3001';
-
-const socket = io(BACKEND_URL);
 
 const server = http.createServer(app);
 const io = new Server(server, {
