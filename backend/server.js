@@ -62,9 +62,12 @@ io.on('connection', (socket) => {
         if (game) {
             game.activeQuestion = { ...question, category: categoryName };
             game.buzzedPlayer = null;
-            game.locked = true; // Komplett gesperrt
+            // Buzzer soll direkt bei Frage-Öffnung freigegeben sein
+            game.locked = false;
+            game.buzzedPlayer = null;
 
             io.to(roomCode).emit('sync_question_opened', game.activeQuestion);
+            io.to(roomCode).emit('question_active');
         }
     });
 
@@ -72,6 +75,33 @@ io.on('connection', (socket) => {
     socket.on('host_reveal_text', (roomCode) => {
         io.to(roomCode).emit('sync_text_revealed');
     });
+
+    // NEU: Medien separat für Spieler freischalten
+    socket.on('host_reveal_media', (roomCode) => {
+        console.log(`host_reveal_media von ${socket.id} in room ${roomCode}`);
+
+        // Debug: welche Sockets hängen wirklich im Room?
+        const rooms = io.of('/').adapter.rooms;
+        const size = rooms?.get(roomCode)?.size ?? 0;
+        console.log(`[DEBUG] room '${roomCode}' player sockets count=${size}`);
+
+        io.to(roomCode).emit('sync_media_revealed');
+    });
+
+    // NEU: Audio-Steuerung synchronisieren (mit Server-Zeit)
+    socket.on('host_audio_play', (roomCode) => {
+        // Player bekommt einen gemeinsamen Startzeitpunkt (Server-Uhr)
+        io.to(roomCode).emit('sync_audio_play', { serverTime: Date.now() });
+    });
+
+    socket.on('host_audio_pause', (roomCode) => {
+        io.to(roomCode).emit('sync_audio_pause', { serverTime: Date.now() });
+    });
+
+    socket.on('host_audio_stop', (roomCode) => {
+        io.to(roomCode).emit('sync_audio_stop', { serverTime: Date.now() });
+    });
+
 
     // 4. Eine Frage wird zum Buzzern freigegeben
     socket.on('activate_question', (roomCode) => {
@@ -92,11 +122,18 @@ io.on('connection', (socket) => {
         game.buzzedPlayer = socket.id;
         const player = game.players.find(p => p.id === socket.id);
 
+        // NEU: Sobald ein Spieler buzzert, Audio bei allen pausieren
+        io.to(roomCode).emit('sync_audio_pause', { serverTime: Date.now() });
+
+        // SFX für alle: Buzz
+        io.to(roomCode).emit('play_sfx', { sfx: 'buzz' });
+
         io.to(roomCode).emit('player_buzzed', {
             playerId: socket.id,
             playerName: player ? player.name : 'Jemand'
         });
     });
+
 
     // 6. Antwort war falsch
     socket.on('wrong_answer', (roomCode) => {
@@ -118,6 +155,21 @@ io.on('connection', (socket) => {
             }
             game.activeQuestion = null;
 
+            // Danach: Spielerboard aktualisieren + Frage gilt als gespielt.
+            io.to(roomCode).emit('sync_question_closed', game.playedQuestions);
+        }
+    });
+
+    // NEU: Host schließt die Frage ohne Haken (Frage soll NICHT als played verschwinden)
+    socket.on('host_cancel_question', (roomCode) => {
+        const game = games[roomCode];
+        if (game && game.activeQuestion) {
+            // Wichtig: playedQuestions NICHT anfassen!
+            game.activeQuestion = null;
+            game.buzzedPlayer = null;
+            game.locked = false;
+
+            // Alle Clients synchron zurück auf Board (mit unverändertem playedQuestions-Array)
             io.to(roomCode).emit('sync_question_closed', game.playedQuestions);
         }
     });
@@ -129,10 +181,16 @@ io.on('connection', (socket) => {
             const player = game.players.find(p => p.id === playerId);
             if (player) {
                 player.score += pointsChange;
+
+                // SFX für alle: Punkte + / -
+                const sfx = pointsChange >= 0 ? 'score' : 'penalty';
+                io.to(roomCode).emit('play_sfx', { sfx });
+
                 io.to(roomCode).emit('update_players', game.players);
             }
         }
     });
+
 
     socket.on('disconnect', () => {
         console.log(`User getrennt: ${socket.id}`);

@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+
 import { supabase } from './supabaseClient';
 
 export default function JeopardyBuilder({ onBack }) {
+
     const [boardTitle, setBoardTitle] = useState('Mein Jeopardy Spiel');
     const [savedBoards, setSavedBoards] = useState([]);
     const [selectedBoardId, setSelectedBoardId] = useState(null);
     const [uploadingState, setUploadingState] = useState({});
     
-    // NEU: Speichert, welche Frage ausgeklappt ist. Format: {"catIdx-qIdx": true}
     const [expandedQuestions, setExpandedQuestions] = useState({});
 
-    // Initialisierung eines leeren 5x5 Boards
     const createEmptyBoard = () => Array.from({ length: 5 }, (_, cIdx) => ({
         name: `KATEGORIE ${cIdx + 1}`,
         questions: [100, 200, 300, 400, 500].map(pts => ({
@@ -20,16 +20,23 @@ export default function JeopardyBuilder({ onBack }) {
 
     const [categories, setCategories] = useState(createEmptyBoard());
 
-    useEffect(() => {
-        fetchBoards();
-    }, []);
-
     const fetchBoards = async () => {
         const { data, error } = await supabase.from('boards').select('id, title, categories');
         if (!error && data) setSavedBoards(data);
     };
 
-    // Funktion zum Umschalten (Ein-/Ausklappen) einer einzelnen Frage
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        const run = async () => {
+            await fetchBoards();
+        };
+        run();
+    }, []);
+
+
+
+
+
     const toggleExpand = (catIdx, qIdx) => {
         const key = `${catIdx}-${qIdx}`;
         setExpandedQuestions(prev => ({
@@ -38,7 +45,6 @@ export default function JeopardyBuilder({ onBack }) {
         }));
     };
 
-    // Komfort-Funktion: Alle Fragen einer bestimmten Kategorie auf einmal aus- oder einklappen
     const toggleAllInCategory = (catIdx, action) => {
         const updated = { ...expandedQuestions };
         [0, 1, 2, 3, 4].forEach(qIdx => {
@@ -84,7 +90,7 @@ export default function JeopardyBuilder({ onBack }) {
             alert("Änderungen gespeichert!");
         } else {
             const { data } = await supabase.from('boards').insert([boardPayload]).select();
-            if (data) setSelectedBoardId(data[0].id);
+            if (data && data[0]) setSelectedBoardId(data[0].id);
             alert("Board neu erstellt!");
         }
         fetchBoards();
@@ -94,7 +100,7 @@ export default function JeopardyBuilder({ onBack }) {
         setSelectedBoardId(board.id);
         setBoardTitle(board.title);
         setCategories(board.categories);
-        setExpandedQuestions({}); // Klappt beim Laden erst mal alle zu für bessere Übersicht
+        setExpandedQuestions({});
     };
 
     const handleNewBoard = () => {
@@ -163,7 +169,8 @@ export default function JeopardyBuilder({ onBack }) {
                                         : 'border-slate-900 bg-slate-900/30 hover:border-slate-700 text-slate-500 hover:text-slate-300'
                                 }`}
                             >
-                                <div className="text-[10px] font-mono opacity-50 mb-1">Board ID: {b.id.slice(0, 5)}</div>
+                                {/* REPARIERT: b.id in String umgewandelt vor dem .slice */}
+                                <div className="text-[10px] font-mono opacity-50 mb-1">Board ID: {String(b.id).slice(0, 5)}</div>
                                 <div className="text-xs font-bold truncate uppercase">{b.title}</div>
                             </button>
                         ))}
@@ -193,7 +200,6 @@ export default function JeopardyBuilder({ onBack }) {
                                         type="text" value={cat.name} onChange={(e) => handleCategoryNameChange(catIdx, e.target.value)}
                                         className="w-full bg-slate-900/50 border-none text-center font-black rounded-xl py-3 text-[10px] tracking-widest uppercase focus:ring-1 focus:ring-white/20 transition-all"
                                     />
-                                    {/* Mini Controls für die ganze Spalte */}
                                     <div className="flex justify-center gap-2 text-[8px] font-mono uppercase text-slate-600 font-bold">
                                         <button onClick={() => toggleAllInCategory(catIdx, 'expand')} className="hover:text-slate-400">[All Open]</button>
                                         <button onClick={() => toggleAllInCategory(catIdx, 'collapse')} className="hover:text-slate-400">[All Close]</button>
@@ -217,15 +223,14 @@ export default function JeopardyBuilder({ onBack }) {
                                                 }`}
                                                 onClick={() => !isExpanded && toggleExpand(catIdx, qIdx)}
                                             >
-                                                {/* Zeile 1: Header (Immer sichtbar) */}
+                                                {/* Zeile 1: Header */}
                                                 <div className="flex justify-between items-center">
                                                     <div className="flex items-center gap-2">
                                                         <span className={`text-[10px] font-mono font-black ${isExpanded ? 'text-amber-400' : 'text-slate-400'}`}>
                                                             {q.points} PKT
                                                         </span>
-                                                        {/* Statuspunkte, wenn zugeklappt */}
                                                         {!isExpanded && hasContent && (
-                                                            <span className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse" title="Inhalt vorhanden" />
+                                                            <span className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse" />
                                                         )}
                                                     </div>
 
@@ -235,7 +240,7 @@ export default function JeopardyBuilder({ onBack }) {
                                                         )}
                                                         <button 
                                                             onClick={(e) => { 
-                                                                e.stopPropagation(); // Verhindert doppeltes Triggering
+                                                                e.stopPropagation(); 
                                                                 toggleExpand(catIdx, qIdx); 
                                                             }}
                                                             className="text-slate-600 hover:text-slate-400 font-mono text-[10px] p-0.5"
@@ -245,9 +250,9 @@ export default function JeopardyBuilder({ onBack }) {
                                                     </div>
                                                 </div>
                                                 
-                                                {/* Zeile 2: Ausklappbarer Content-Bereich */}
+                                                {/* Zeile 2: Ausklappbar */}
                                                 {isExpanded && (
-                                                    <div className="space-y-3 pt-3 animate-fadeIn">
+                                                    <div className="space-y-3 pt-3 style-fadeIn">
                                                         <textarea
                                                             placeholder="Frage formulieren..." value={q.text}
                                                             onChange={(e) => handleQuestionChange(catIdx, qIdx, 'text', e.target.value)}
@@ -260,7 +265,6 @@ export default function JeopardyBuilder({ onBack }) {
                                                             className="w-full bg-transparent text-[11px] text-emerald-400 font-bold border-none focus:ring-0 p-0 placeholder-emerald-900/30"
                                                         />
 
-                                                        {/* Multimedia Steuerung */}
                                                         <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-2">
                                                             <select
                                                                 value={q.mediaType}
@@ -293,15 +297,15 @@ export default function JeopardyBuilder({ onBack }) {
                 </div>
             </div>
 
-            {/* CSS Animationen */}
-            <style jsx>{`
+            {/* REPARIERT: Valides React-Style Tag */}
+            <style dangerouslySetInnerHTML={{__html: `
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
-                .animate-fadeIn { animation: flexFade 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+                .style-fadeIn { animation: flexFade 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
                 @keyframes flexFade { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-            `}</style>
+            `}} />
         </div>
     );
 }
