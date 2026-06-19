@@ -11,7 +11,7 @@ import { getSfxUrl, playSfx } from './audio/sfx';
 
 
 // Tausche localhost gegen deine Render-Backend-URL aus, sobald du sie hast!
-const socket = io('http://localhost:3001');
+const socket = io('http://localhost:3001'); io('https://projekt73.onrender.com');
 
 
 
